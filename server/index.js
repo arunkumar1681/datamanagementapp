@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const xlsx = require('xlsx');
-const { pool, initializeDatabase } = require('./database');
+const { getPool, initializeDatabase, poolReady } = require('./database');
 require('dotenv').config();
 
 const app = express();
@@ -14,9 +14,6 @@ app.use(express.json());
 
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
-
-// Initialize database on startup
-initializeDatabase();
 
 // Helper function to format dates
 const formatDate = (date) => {
@@ -33,9 +30,40 @@ const formatTime = (date) => {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
 };
 
+// Map snake_case DB row to camelCase expected by frontend
+const mapCustomerRowToCamelCase = (row) => ({
+  serialNumber: row.serial_number,
+  salesPerson: row.sales_person,
+  supportPerson: row.support_person,
+  storeName: row.store_name,
+  customerEmail: row.customer_email,
+  customerPhone: row.customer_phone,
+  accountId: row.account_id,
+  outletId: row.outlet_id,
+  addressLine: row.address_line,
+  city: row.city,
+  state: row.state,
+  country: row.country,
+  gstin: row.gstin,
+  signupDate: formatDate(row.signup_date),
+  signupPack: row.signup_pack,
+  currentPlan: row.current_plan,
+  validityTill: formatDate(row.validity_till),
+  nextRenewalOn: formatDate(row.next_renewal_on),
+  channelPartner: row.channel_partner,
+  status: row.status,
+  category: row.category,
+  productName: row.product_name,
+  paidPackAmount: row.paid_pack_amount,
+  paidSmsAmount: row.paid_sms_amount,
+  paidWaAmount: row.paid_wa_amount,
+  createdAt: formatTime(row.created_at)
+});
+
 // Generate unique serial number
 const generateSerialNumber = async () => {
-  const result = await pool.query('SELECT COUNT(*) FROM customers');
+  await poolReady;
+  const result = await getPool().query('SELECT COUNT(*) FROM customers');
   const count = parseInt(result.rows[0].count) + 1;
   return `CUS${count.toString().padStart(6, '0')}`;
 };
@@ -93,17 +121,11 @@ app.get('/api/customers', async (req, res) => {
     params.push(limit, offset);
 
     const [customers, totalCount] = await Promise.all([
-      pool.query(query, params),
-      pool.query(countQuery, params.slice(0, -2))
+      getPool().query(query, params),
+      getPool().query(countQuery, params.slice(0, -2))
     ]);
 
-    const formattedCustomers = customers.rows.map(customer => ({
-      ...customer,
-      signup_date: formatDate(customer.signup_date),
-      validity_till: formatDate(customer.validity_till),
-      next_renewal_on: formatDate(customer.next_renewal_on),
-      created_at: formatTime(customer.created_at)
-    }));
+    const formattedCustomers = customers.rows.map(mapCustomerRowToCamelCase);
 
     res.json({
       customers: formattedCustomers,
@@ -117,24 +139,25 @@ app.get('/api/customers', async (req, res) => {
   }
 });
 
-// Get customer by ID
+// Get customer by ID or serial number
 app.get('/api/customers/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
+    let result;
+
+    if (/^\d+$/.test(id)) {
+      // If numeric, try by numeric id or by serial_number equal to same string
+      result = await getPool().query('SELECT * FROM customers WHERE id = $1 OR serial_number = $2', [parseInt(id, 10), id]);
+    } else {
+      // Otherwise, treat as serial number
+      result = await getPool().query('SELECT * FROM customers WHERE serial_number = $1', [id]);
+    }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    const customer = result.rows[0];
-    const formattedCustomer = {
-      ...customer,
-      signup_date: formatDate(customer.signup_date),
-      validity_till: formatDate(customer.validity_till),
-      next_renewal_on: formatDate(customer.next_renewal_on),
-      created_at: formatTime(customer.created_at)
-    };
+    const formattedCustomer = mapCustomerRowToCamelCase(result.rows[0]);
 
     res.json(formattedCustomer);
   } catch (error) {
@@ -172,8 +195,8 @@ app.post('/api/customers', async (req, res) => {
       customerData.paid_pack_amount, customerData.paid_sms_amount, customerData.paid_wa_amount
     ];
 
-    const result = await pool.query(query, values);
-    res.status(201).json(result.rows[0]);
+    const result = await getPool().query(query, values);
+    res.status(201).json(mapCustomerRowToCamelCase(result.rows[0]));
   } catch (error) {
     console.error('Error creating customer:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -209,13 +232,13 @@ app.put('/api/customers/:id', async (req, res) => {
       customerData.paid_wa_amount
     ];
 
-    const result = await pool.query(query, values);
+    const result = await getPool().query(query, values);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    res.json(result.rows[0]);
+    res.json(mapCustomerRowToCamelCase(result.rows[0]));
   } catch (error) {
     console.error('Error updating customer:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -226,7 +249,7 @@ app.put('/api/customers/:id', async (req, res) => {
 app.delete('/api/customers/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
+    const result = await getPool().query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found' });
@@ -254,12 +277,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
       lastMonthUpsells,
       lastMonthNegativeChurn
     ] = await Promise.all([
-      pool.query("SELECT COUNT(*) FROM customers WHERE status = 'Active'"),
-      pool.query("SELECT COUNT(*) FROM customers WHERE status = 'Inactive'"),
-      pool.query("SELECT COUNT(*) FROM customers WHERE status = 'Inactive' AND updated_at >= $1 AND updated_at < $2", [lastMonth, thisMonth]),
-      pool.query("SELECT COUNT(*) FROM customers WHERE created_at >= $1 AND created_at < $2", [lastMonth, thisMonth]),
-      pool.query("SELECT COUNT(*) FROM customers WHERE updated_at >= $1 AND updated_at < $2 AND (paid_pack_amount > 0 OR paid_sms_amount > 0 OR paid_wa_amount > 0)", [lastMonth, thisMonth]),
-      pool.query("SELECT COUNT(*) FROM customers WHERE status = 'Active' AND updated_at >= $1 AND updated_at < $2", [lastMonth, thisMonth])
+      getPool().query("SELECT COUNT(*) FROM customers WHERE status = 'Active'"),
+      getPool().query("SELECT COUNT(*) FROM customers WHERE status = 'Inactive'"),
+      getPool().query("SELECT COUNT(*) FROM customers WHERE status = 'Inactive' AND updated_at >= $1 AND updated_at < $2", [lastMonth, thisMonth]),
+      getPool().query("SELECT COUNT(*) FROM customers WHERE created_at >= $1 AND created_at < $2", [lastMonth, thisMonth]),
+      getPool().query("SELECT COUNT(*) FROM customers WHERE updated_at >= $1 AND updated_at < $2 AND (paid_pack_amount > 0 OR paid_sms_amount > 0 OR paid_wa_amount > 0)", [lastMonth, thisMonth]),
+      getPool().query("SELECT COUNT(*) FROM customers WHERE status = 'Active' AND updated_at >= $1 AND updated_at < $2", [lastMonth, thisMonth])
     ]);
 
     res.json({
@@ -345,7 +368,7 @@ app.post('/api/import/excel', upload.single('file'), async (req, res) => {
           customerData.paid_pack_amount, customerData.paid_sms_amount, customerData.paid_wa_amount
         ];
 
-        await pool.query(query, values);
+        await getPool().query(query, values);
         imported++;
       } catch (error) {
         errors.push(`Row ${imported + errors.length + 1}: ${error.message}`);
@@ -366,8 +389,8 @@ app.post('/api/import/excel', upload.single('file'), async (req, res) => {
 // Excel export
 app.get('/api/export/excel', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM customers ORDER BY created_at DESC');
-    const customers = result.rows.map(customer => ({
+    const result = await getPool().query('SELECT * FROM customers ORDER BY created_at DESC');
+    const customers = result.rows.map((customer) => ({
       'Serial Number': customer.serial_number,
       'Sales Person': customer.sales_person,
       'Support Person': customer.support_person,
@@ -411,6 +434,12 @@ app.get('/api/export/excel', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Start server only after DB is initialized
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}).catch((err) => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });

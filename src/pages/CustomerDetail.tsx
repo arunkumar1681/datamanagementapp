@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin } from 'lucide-react';
+import { apiClient } from '../config/api';
 
 interface Customer {
-  serialNumber: number;
+  serialNumber: string;
   salesPerson: string;
   supportPerson: string;
   storeName: string;
@@ -44,14 +45,8 @@ export const CustomerDetail: React.FC = () => {
 
   const fetchCustomer = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/customers/${id}`);
-      
-      if (response.ok) {
-        const result = await response.json();
-        setCustomer(result);
-      } else {
-        setError('Customer not found');
-      }
+      const result = await apiClient.get(`/api/customers/${id}`);
+      setCustomer(result);
     } catch (err) {
       setError('Error connecting to server');
     } finally {
@@ -65,16 +60,9 @@ export const CustomerDetail: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/customers/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        alert('Customer deleted successfully');
-        navigate('/customers');
-      } else {
-        alert('Failed to delete customer');
-      }
+      await apiClient.delete(`/api/customers/${id}`);
+      alert('Customer deleted successfully');
+      navigate('/customers');
     } catch (error) {
       console.error('Error deleting customer:', error);
       alert('Error deleting customer');

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Download, Upload, Plus, Eye } from 'lucide-react';
+import { apiClient } from '../config/api';
 
 interface Customer {
-  serialNumber: number;
+  serialNumber: string;
   salesPerson: string;
   supportPerson: string;
   storeName: string;
@@ -50,14 +51,8 @@ export const CustomerList: React.FC = () => {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
 
-      const response = await fetch(`http://localhost:3001/api/customers?${params}`);
-      const result = await response.json();
-      
-      if (response.ok) {
-        setCustomers(result.customers || []);
-      } else {
-        setError('Failed to fetch customers');
-      }
+      const result = await apiClient.get(`/api/customers?${params.toString()}`);
+      setCustomers(result.customers || []);
     } catch (err) {
       setError('Error connecting to server');
     } finally {
@@ -67,8 +62,7 @@ export const CustomerList: React.FC = () => {
 
   const handleExportExcel = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/export/excel');
-      const blob = await response.blob();
+      const blob = await apiClient.downloadFile('/api/export/excel');
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -91,19 +85,9 @@ export const CustomerList: React.FC = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:3001/api/import/excel', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert(result.message);
-        fetchCustomers();
-      } else {
-        alert(result.message || 'Import failed');
-      }
+      const result = await apiClient.uploadFile('/api/import/excel', formData);
+      alert(result.message);
+      fetchCustomers();
     } catch (error) {
       console.error('Error importing Excel:', error);
       alert('Error importing file');

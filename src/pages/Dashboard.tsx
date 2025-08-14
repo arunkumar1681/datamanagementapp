@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserCheck, UserX, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { apiClient } from '../config/api';
 
 interface DashboardData {
   activeCustomers: number;
@@ -28,27 +29,22 @@ export const Dashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/dashboard/stats');
-      const result = await response.json();
+      const result = await apiClient.get('/api/dashboard/stats');
       
-      if (response.ok) {
-        // Mock chart data since the API doesn't provide it yet
-        const chartData = [
-          { month: 'Jan', newCustomers: 12, active: 45, inactive: 5 },
-          { month: 'Feb', newCustomers: 19, active: 52, inactive: 8 },
-          { month: 'Mar', newCustomers: 15, active: 48, inactive: 12 },
-          { month: 'Apr', newCustomers: 22, active: 58, inactive: 7 },
-          { month: 'May', newCustomers: 18, active: 55, inactive: 9 },
-          { month: 'Jun', newCustomers: 25, active: 62, inactive: 6 }
-        ];
-        
-        setData({
-          ...result,
-          chartData
-        });
-      } else {
-        setError('Failed to fetch dashboard data');
-      }
+      // Mock chart data since the API doesn't provide it yet
+      const chartData = [
+        { month: 'Jan', newCustomers: 12, active: 45, inactive: 5 },
+        { month: 'Feb', newCustomers: 19, active: 52, inactive: 8 },
+        { month: 'Mar', newCustomers: 15, active: 48, inactive: 12 },
+        { month: 'Apr', newCustomers: 22, active: 58, inactive: 7 },
+        { month: 'May', newCustomers: 18, active: 55, inactive: 9 },
+        { month: 'Jun', newCustomers: 25, active: 62, inactive: 6 }
+      ];
+      
+      setData({
+        ...result,
+        chartData
+      });
     } catch (err) {
       setError('Error connecting to server');
     } finally {

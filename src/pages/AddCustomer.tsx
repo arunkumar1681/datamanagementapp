@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
+import { apiClient } from '../config/api';
 
 interface CustomerForm {
   salesPerson: string;
@@ -72,45 +73,34 @@ export const AddCustomer: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/customers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sales_person: formData.salesPerson,
-          support_person: formData.supportPerson,
-          store_name: formData.storeName,
-          customer_email: formData.customerEmail,
-          customer_phone: formData.customerPhone,
-          account_id: formData.accountId,
-          outlet_id: formData.outletId,
-          address_line: formData.addressLine,
-          city: formData.city,
-          state: formData.state,
-          country: formData.country,
-          gstin: formData.gstin,
-          signup_date: formData.signupDate,
-          signup_pack: formData.signupPack,
-          current_plan: formData.currentPlan,
-          validity_till: formData.validityTill,
-          next_renewal_on: formData.nextRenewalOn,
-          channel_partner: formData.channelPartner,
-          status: formData.status,
-          category: formData.category,
-          product_name: formData.productName,
-          paid_pack_amount: formData.paidPackAmount,
-          paid_sms_amount: formData.paidSmsAmount,
-          paid_wa_amount: formData.paidWaAmount,
-        }),
+      await apiClient.post('/api/customers', {
+        sales_person: formData.salesPerson,
+        support_person: formData.supportPerson,
+        store_name: formData.storeName,
+        customer_email: formData.customerEmail,
+        customer_phone: formData.customerPhone,
+        account_id: formData.accountId,
+        outlet_id: formData.outletId,
+        address_line: formData.addressLine,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        gstin: formData.gstin,
+        signup_date: formData.signupDate,
+        signup_pack: formData.signupPack,
+        current_plan: formData.currentPlan,
+        validity_till: formData.validityTill,
+        next_renewal_on: formData.nextRenewalOn,
+        channel_partner: formData.channelPartner,
+        status: formData.status,
+        category: formData.category,
+        product_name: formData.productName,
+        paid_pack_amount: formData.paidPackAmount,
+        paid_sms_amount: formData.paidSmsAmount,
+        paid_wa_amount: formData.paidWaAmount,
       });
-
-      if (response.ok) {
-        alert('Customer added successfully!');
-        navigate('/customers');
-      } else {
-        alert('Failed to add customer');
-      }
+      alert('Customer added successfully!');
+      navigate('/customers');
     } catch (error) {
       console.error('Error adding customer:', error);
       alert('Error adding customer');

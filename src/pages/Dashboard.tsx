@@ -28,11 +28,24 @@ export const Dashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/dashboard');
+      const response = await fetch('http://localhost:3001/api/dashboard/stats');
       const result = await response.json();
       
-      if (result.success) {
-        setData(result.data);
+      if (response.ok) {
+        // Mock chart data since the API doesn't provide it yet
+        const chartData = [
+          { month: 'Jan', newCustomers: 12, active: 45, inactive: 5 },
+          { month: 'Feb', newCustomers: 19, active: 52, inactive: 8 },
+          { month: 'Mar', newCustomers: 15, active: 48, inactive: 12 },
+          { month: 'Apr', newCustomers: 22, active: 58, inactive: 7 },
+          { month: 'May', newCustomers: 18, active: 55, inactive: 9 },
+          { month: 'Jun', newCustomers: 25, active: 62, inactive: 6 }
+        ];
+        
+        setData({
+          ...result,
+          chartData
+        });
       } else {
         setError('Failed to fetch dashboard data');
       }

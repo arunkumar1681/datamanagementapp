@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "cd server && npm run dev",
+    "start:full": "concurrently \"npm run server\" \"npm run dev\""
   },
   "dependencies": {
     "cors": "^2.8.5",

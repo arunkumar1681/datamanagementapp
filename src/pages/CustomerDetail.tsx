@@ -45,10 +45,10 @@ export const CustomerDetail: React.FC = () => {
   const fetchCustomer = async () => {
     try {
       const response = await fetch(`http://localhost:3001/api/customers/${id}`);
-      const result = await response.json();
       
-      if (result.success) {
-        setCustomer(result.data);
+      if (response.ok) {
+        const result = await response.json();
+        setCustomer(result);
       } else {
         setError('Customer not found');
       }
@@ -69,9 +69,7 @@ export const CustomerDetail: React.FC = () => {
         method: 'DELETE',
       });
       
-      const result = await response.json();
-      
-      if (result.success) {
+      if (response.ok) {
         alert('Customer deleted successfully');
         navigate('/customers');
       } else {

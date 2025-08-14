@@ -53,8 +53,8 @@ export const CustomerList: React.FC = () => {
       const response = await fetch(`http://localhost:3001/api/customers?${params}`);
       const result = await response.json();
       
-      if (result.success) {
-        setCustomers(result.data);
+      if (response.ok) {
+        setCustomers(result.customers || []);
       } else {
         setError('Failed to fetch customers');
       }
@@ -67,7 +67,7 @@ export const CustomerList: React.FC = () => {
 
   const handleExportExcel = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/export-excel');
+      const response = await fetch('http://localhost:3001/api/export/excel');
       const blob = await response.blob();
       
       const url = window.URL.createObjectURL(blob);
@@ -91,14 +91,14 @@ export const CustomerList: React.FC = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:3001/api/import-excel', {
+      const response = await fetch('http://localhost:3001/api/import/excel', {
         method: 'POST',
         body: formData,
       });
       
       const result = await response.json();
       
-      if (result.success) {
+      if (response.ok) {
         alert(result.message);
         fetchCustomers();
       } else {
